@@ -5,6 +5,7 @@ namespace GreeceEVForecast
 {
     public class MapGenerator
     {
+        private static int cellIncreaseId = 0;
         public static void GenerateLeafletMapWithLayers(
             IEnumerable<GridCell> gridCells,
             IEnumerable<HotelPoint> hotels,
@@ -68,13 +69,58 @@ var primaryLayer = L.layerGroup();
                 // ================= GRID =================
                 foreach (var cell in gridCells)
                 {
+                    cellIncreaseId++;
                     double half = 0.0045 / 2.0;
                     double south = cell.Latitude - half;
                     double north = cell.Latitude + half;
                     double west = cell.Longitude - half;
                     double east = cell.Longitude + half;
-                    string safePopup = EscapeJs($"Predicted CDI: {cell.PredictedCDI:F4}");
 
+                    var hotelsInside = hotels
+                        .Where(e => e.Latitude >= south && e.Latitude <= north && e.Longitude >= west && e.Longitude <= east)
+                        .GroupBy(e => new { e.Latitude, e.Longitude })
+                        .Select(group => group.First());
+
+                    var gasInside = gasStations
+                        .Where(g => g.Latitude >= south && g.Latitude <= north && g.Longitude >= west && g.Longitude <= east)
+                        .GroupBy(g => new { g.Latitude, g.Longitude })
+                        .Select(group => group.First());
+
+                    var evInside = evStations
+                        .Where(e => e.Latitude >= south && e.Latitude <= north && e.Longitude >= west && e.Longitude <= east)
+                        .GroupBy(e => new { e.Latitude, e.Longitude })
+                        .Select(group => group.First());
+
+
+                    // Build the popup content
+                    string popupContent = $"<b>Cell ID: {cellIncreaseId} - Predicted CDI: {cell.PredictedCDI:F4}</b><br/>";
+
+                    if (hotelsInside.Any())
+                    {
+                        popupContent += "<br/><b>Hotels:</b> " + hotelsInside.Count();
+                    }
+                    else
+                    {
+                        popupContent += "<br/><b>EV Stations: 0</b>";
+                    }
+                    if (gasInside.Any())
+                    {
+                        popupContent += "<br/><b>Gas Stations:</b> " + gasInside.Count();
+                    }
+                    else
+                    {
+                        popupContent += "<br/><b>Gas Stations: 0</b>";
+                    }
+                    if (evInside.Any())
+                    {
+                        popupContent += "<br/><b>EV Stations:</b> " + evInside.Count();
+                    }
+                    else
+                    {
+                        popupContent += "<br/><b>EV Stations: 0</b>";
+                    }
+
+                    string safePopup = EscapeJs(popupContent);
                     writer.WriteLine($@"
 L.rectangle([
     [{south.ToString(CultureInfo.InvariantCulture)}, {west.ToString(CultureInfo.InvariantCulture)}],
